@@ -1,7 +1,12 @@
 /**
 * Author: JumboDS64
-* Assignment: Simple 2D Scene
-* Date due: 2023-06-11, 8:17pm
+<<<<<<< HEAD
+* Assignment: Lunar Lander
+* Date due: 2023-07-11, 11:54pm
+=======
+* Assignment: Pong Clone
+* Date due: 2023-06-25, 11:55pm
+>>>>>>> f7150b59eab542bf03d93ca167bd52ec6282bc54
 * I pledge that I have completed this assignment without
 * collaborating with anyone else, in conformance with the
 * NYU School of Engineering Policies and Procedures on
@@ -23,27 +28,121 @@
 #include "ShaderProgram.h"
 #include "stb_image.h"
 
+#include "Entity.h"
+
+/**struct GameState {
+    Entity* player;
+};
+GameState state;**/
+
 SDL_Window* displayWindow;
 bool gameIsRunning = true;
 
 ShaderProgram program;
-glm::mat4 viewMatrix, modelMatrix1, modelMatrix2, projectionMatrix;
-glm::vec3 position1, position2;
-float rotation1, rotation2;
+glm::mat4 viewMatrix, projectionMatrix;
+<<<<<<< HEAD
+=======
 glm::vec3 scale1, scale2;
-float vertices1[] = { 0.5f, 0.5f,  -0.5f, 0.5f,  -0.5f, -0.5f,  -0.5f, -0.5f,  0.5f, -0.5f,  0.5f, 0.5f };
-float vertices2[] = { 0.2f, 0.2f,  -0.1f, 0.1f,  -0.2f, -0.2f,  -0.2f, -0.2f,  0.1f, -0.1f,  0.2f, 0.2f };//{ 0.0f, 0.0f, 0.0f, 0.2f, 0.2f, 0.1f, 0.2f, -0.2f, -0.2f, -0.2f, -0.2f, 0.1f, 0.0f, 0.2f };
-float uvs1[] = { 0.0f, 0.0f,  1.0f, 0.0f,  1.0f, 1.0f,  1.0f, 1.0f,  0.0f, 1.0f,  0.0f, 0.0f };
-float uvs2[] = { 0.0f, 0.0f,  1.0f, 0.0f,  1.0f, 1.0f,  1.0f, 1.0f,  0.0f, 1.0f,  0.0f, 0.0f };
-char texture1_path[] = "spr1.png";
-GLuint texture1;
-char texture2_path[] = "spr2.png";
-GLuint texture2;
+>>>>>>> f7150b59eab542bf03d93ca167bd52ec6282bc54
 float time_c;
 float time_p;
 float delta;
 float time_total;
-const glm::vec3 vec_out = glm::vec3(0,0,1);
+const glm::vec3 vec_out = glm::vec3(0, 0, 1);
+
+Entity* ent_player;
+
+float dim_x = 4.75;
+float dim_x2 = 4.25;
+float dim_y = 3.5;
+int score = 0;
+int whowon = 0;
+int paddle1_dir = 0;
+int paddle2_dir = 0;
+float paddle_width = 1;
+
+bool key_left = false;
+bool key_right = false;
+bool key_up = false;
+bool key_down = false;
+
+int cs = 0; //0 = normal, 1 = lose, 2 = win
+int cs_timer = 0;
+
+int tiles_width = 20;
+int tiles_height = 15;
+int tile_render_size = 32;
+int tiles[15][20] = {
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0},
+    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 1, 1},
+    {1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1},
+    {1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 3, 1, 0, 0, 0, 0},
+    {1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0}
+};
+Entity* tile_drawer;
+/**
+* corners = 5, 3.75 (divide each dimension by 4)
+* 
+**/
+Entity* screen_message;
+Entity* fuel_bar;
+float fuel = 30;
+float fuel_max = 30;
+
+glm::mat4 paddle1_modelMatrix;
+glm::vec3 paddle1_position;
+float paddle1_vertices[] = { -0.5f, 0.5f,  0.5f, 0.5f,  0.5f, -0.5f,  0.5f, -0.5f,  -0.5f, -0.5f,  -0.5f, 0.5f };
+float paddle1_uvs[] = { 0.0f, 0.0f,  1.0f, 0.0f,  1.0f, 1.0f,  1.0f, 1.0f,  0.0f, 1.0f,  0.0f, 0.0f };
+glm::vec3 paddle1_scale;
+char paddle1_texture_path[] = "paddle.png";
+GLuint paddle1_texture;
+
+glm::mat4 paddle2_modelMatrix;
+glm::vec3 paddle2_position;
+float paddle2_vertices[] = { -0.5f, 0.5f,  0.5f, 0.5f,  0.5f, -0.5f,  0.5f, -0.5f,  -0.5f, -0.5f,  -0.5f, 0.5f };
+float paddle2_uvs[] = { 0.0f, 0.0f,  -1.0f, 0.0f,  -1.0f, 1.0f,  -1.0f, 1.0f,  0.0f, 1.0f,  0.0f, 0.0f };
+glm::vec3 paddle2_scale;
+char paddle2_texture_path[] = "paddle.png";
+GLuint paddle2_texture;
+
+glm::mat4 ball_modelMatrix;
+glm::vec3 ball_position;
+glm::vec3 ball_velocity;
+float ball_vertices[] = { -0.5f, 0.5f,  0.5f, 0.5f,  0.5f, -0.5f,  0.5f, -0.5f,  -0.5f, -0.5f,  -0.5f, 0.5f };
+float ball_uvs[] = { 0.0f, 0.0f,  1.0f, 0.0f,  1.0f, 1.0f,  1.0f, 1.0f,  0.0f, 1.0f,  0.0f, 0.0f };
+glm::vec3 ball_scale;
+float ball_rotation;
+char ball_texture_path[] = "spr2.png";
+GLuint ball_texture;
+
+glm::mat4 wintext_modelMatrix;
+glm::vec3 wintext_position;
+float wintext_vertices[] = { -2.0f, 0.5f,  2.0f, 0.5f,  2.0f, -0.5f,  2.0f, -0.5f,  -2.0f, -0.5f,  -2.0f, 0.5f };
+float wintext_uvs_1[] = { 0.0f, 0.0f,  1.0f, 0.0f,  1.0f, 0.5f,  1.0f, 0.5f,  0.0f, 0.5f,  0.0f, 0.0f };
+float wintext_uvs_2[] = { 0.0f, 0.5f,  1.0f, 0.5f,  1.0f, 1.0f,  1.0f, 1.0f,  0.0f, 1.0f,  0.0f, 0.5f };
+char wintext_texture_path[] = "wintext.png";
+GLuint wintext_texture;
+
+float dim_x = 4.75;
+float dim_x2 = 4.25;
+float dim_y = 3.5;
+float ball_speed = 1;
+int score = 0;
+int whowon = 0;
+int paddle1_dir = 0;
+int paddle2_dir = 0;
+float paddle_width = 1;
+int wintext_timer = 0;
 
 GLuint load_texture(const char* filepath) {
     // STEP 1: Loading the image file
@@ -73,7 +172,7 @@ GLuint load_texture(const char* filepath) {
 
 void Initialize() {
     SDL_Init(SDL_INIT_VIDEO);
-    displayWindow = SDL_CreateWindow("Triangle!", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, SDL_WINDOW_OPENGL);
+    displayWindow = SDL_CreateWindow("Luner Landar", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, SDL_WINDOW_OPENGL);
     SDL_GLContext context = SDL_GL_CreateContext(displayWindow);
     SDL_GL_MakeCurrent(displayWindow, context);
 
@@ -88,17 +187,69 @@ void Initialize() {
     viewMatrix = glm::mat4(1.0f);
     projectionMatrix = glm::ortho(-5.0f, 5.0f, -3.75f, 3.75f, -1.0f, 1.0f);
 
-    position1 = glm::vec3(0);
-    rotation1 = 0;
-    scale1 = glm::vec3(1);
-    texture1 = load_texture(texture1_path);
-    modelMatrix1 = glm::mat4(1.0f);
-    position2 = glm::vec3(0);
-    rotation2 = 0;
-    scale2 = glm::vec3(1);
+<<<<<<< HEAD
+    ent_player = new Entity();
+    ent_player->position = glm::vec3(0);
+    ent_player->position.x = 3.75;
+    ent_player->position.y = 1;
+    ent_player->scale = glm::vec3(0.5);
+    ent_player->textureID = load_texture("saucer.png");
+    ent_player->animCols = 4;
+    ent_player->animRows = 4;
+
+    tile_drawer = new Entity();
+    tile_drawer->scale = glm::vec3(0.5);
+    tile_drawer->textureID = load_texture("tiles.png");
+    tile_drawer->animCols = 4;
+    tile_drawer->animRows = 4;
+
+    screen_message = new Entity();
+    screen_message->scale = glm::vec3(4);
+    screen_message->textureID = load_texture("wintext.png");
+    screen_message->animCols = 2;
+    screen_message->animRows = 1;
+    screen_message->position.x = 100;
+    screen_message->Update(1);
+
+    fuel_bar = new Entity();
+    fuel_bar->position.x = -4;
+    fuel_bar->scale = glm::vec3(1);
+    fuel_bar->scale.x = 0.5;
+    fuel_bar->scale.y = 4;
+    fuel_bar->textureID = load_texture("fuel.png");
+=======
+    paddle1_position = glm::vec3(0);
+    paddle1_position.x = -dim_x2;
+    paddle1_scale = glm::vec3(1);
+    paddle1_scale.x = 0.25;
+    paddle1_texture = load_texture(paddle1_texture_path);
+    paddle1_modelMatrix = glm::mat4(1.0f);
+
+    paddle2_position = glm::vec3(0);
+    paddle2_position.x = dim_x2;
+    paddle2_scale = glm::vec3(1);
+    paddle2_scale.x = 0.25;
+    paddle2_texture = load_texture(paddle2_texture_path);
+    paddle2_modelMatrix = glm::mat4(1.0f);
+
+    ball_speed = 2;
+
+    ball_position = glm::vec3(0);
+    ball_velocity = glm::vec3(0);
+    ball_velocity.x = ball_speed;
+    ball_velocity.y = ball_speed;
+    ball_rotation = 0;
+    ball_scale = glm::vec3(0.5);
+    ball_texture = load_texture(ball_texture_path);
+    ball_modelMatrix = glm::mat4(1.0f);
+
+    wintext_position = glm::vec3(0);
+    wintext_position.x = dim_x2;
+    wintext_texture = load_texture(wintext_texture_path);
+    wintext_modelMatrix = glm::mat4(1.0f);
+>>>>>>> f7150b59eab542bf03d93ca167bd52ec6282bc54
+
     time_total = 0;
-    texture2 = load_texture(texture2_path);
-    modelMatrix2 = glm::mat4(1.0f);
 
     program.SetProjectionMatrix(projectionMatrix);
     program.SetViewMatrix(viewMatrix);
@@ -115,10 +266,58 @@ void Initialize() {
 void ProcessInput() {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
-        if (event.type == SDL_QUIT || event.type == SDL_WINDOWEVENT_CLOSE) {
+        switch (event.type) {
+            // End game
+        case SDL_QUIT:
+        case SDL_WINDOWEVENT_CLOSE:
             gameIsRunning = false;
+            break;
+<<<<<<< HEAD
+=======
+
+        case SDL_KEYDOWN:
+            switch (event.key.keysym.sym) {
+                case SDLK_w:
+                    paddle1_dir = 1;
+                    break;
+                case SDLK_s:
+                    paddle1_dir = -1;
+                    break;
+                case SDLK_UP:
+                    paddle2_dir = 1;
+                    break;
+                case SDLK_DOWN:
+                    paddle2_dir = -1;
+                    break;
+            }
+
+>>>>>>> f7150b59eab542bf03d93ca167bd52ec6282bc54
+        default:
+            break;
         }
     }
+    const Uint8* keys = SDL_GetKeyboardState(NULL);
+    key_left = keys[SDL_SCANCODE_A];
+    key_right = keys[SDL_SCANCODE_D];
+    key_up = keys[SDL_SCANCODE_W];
+    key_down = keys[SDL_SCANCODE_S];
+}
+
+int ent_to_tile_x(float x) {
+    int out = (int)(x*2 + tiles_width/2.0);
+    if (out >= tiles_width) return tiles_width - 1;
+    else if (out < 0) return 0;
+}
+int ent_to_tile_y(float y) {
+    int out = tiles_height-(int)(y*2 + tiles_height/2.0)-1;
+    if (out >= tiles_height) return tiles_height - 1;
+    else if (out < 0) return 0;
+}
+int tile_at(float x, float y) {
+    return tiles[ent_to_tile_y(y)][ent_to_tile_x(x)];
+}
+int tile_at(Entity* e) {
+    return tiles[ent_to_tile_y(e->position.y)][ent_to_tile_x(e->position.x)];
 }
 
 void Update() {
@@ -127,51 +326,228 @@ void Update() {
     time_p = time_c;
     time_total += delta;
 
-    position1.x = sin(time_total) * 2;
-    position1.y = cos(time_total) * 2;
-    rotation1 += 0.5 * delta;
-    scale1.x = 1.2 + sin(time_total * 8) * 0.1;
-    scale1.y = 1.2 - sin(time_total * 8) * 0.1;
-    float sp = 4;
-    //sburb spirograph
-    float p2x = cos(time_total*sp) * (17.0f/6.0f) - (7.0f/6.0f) * cos((time_total*sp*(17.0f/6.0f)) / (7.0f/6.0f));
-    float p2y = sin(time_total*sp) * (17.0f/6.0f) - (7.0f/6.0f) * sin((time_total*sp*(17.0f/6.0f)) / (7.0f/6.0f));
-    position2.x = position1.x + p2x*0.3;
-    position2.y = position1.y + p2y*0.3;
-    rotation2 -= 2 * delta;
-    scale2.x = sqrt(pow(p2x,2) + pow(p2y,2)) * 0.5 - 0.3;
-    scale2.y = scale2.x;
+<<<<<<< HEAD
+    if (cs == 0) {
+        if (key_left && fuel > 0) {
+            ent_player->acceleration.x = -2;
+            fuel -= 2 * delta;
+        }
+        else if (key_right && fuel > 0) {
+            ent_player->acceleration.x = 2;
+            fuel -= 2 * delta;
+        }
+        else {
+            ent_player->acceleration.x = 0;
+            float s = 1.5;
+            if (ent_player->velocity.x < s * delta) {
+                ent_player->velocity.x += s * delta;
+                if (ent_player->velocity.x > 0) ent_player->velocity.x = 0;
+            }
+            if (ent_player->velocity.x > s * delta) {
+                ent_player->velocity.x -= s * delta;
+                if (ent_player->velocity.x < 0) ent_player->velocity.x = 0;
+            }
+        }
+        if (key_up && fuel > 0) {
+            ent_player->acceleration.y = 2;
+            ent_player->animIndex = 1;
+            fuel -= 2 * delta;
+        }
+        else {
+            ent_player->acceleration.y = -1;
+            ent_player->animIndex = 0;
+        }
+        if (ent_player->velocity.y < -10) {
+            ent_player->velocity.y = -10;
+        }
+    }
+    if (fuel < 0) fuel = 0;
 
-    modelMatrix1 = glm::translate(glm::mat4(1.0f), position1);
-    modelMatrix1 = glm::rotate(modelMatrix1, rotation1, vec_out);
-    modelMatrix1 = glm::scale(modelMatrix1, scale1);
-    modelMatrix2 = glm::translate(glm::mat4(1.0f), position2);
-    modelMatrix2 = glm::rotate(modelMatrix2, rotation2, vec_out);
-    modelMatrix2 = glm::scale(modelMatrix2, scale2);
+    float px_old = ent_player->position.x;
+    float py_old = ent_player->position.y;
+    ent_player->Update(delta);
+
+    int t = tile_at(ent_player->position.x, ent_player->position.y - 0.25);
+    if (t != 0) {
+        ent_player->position.x = px_old;
+        ent_player->velocity.x = 0;
+        ent_player->position.y = py_old;
+        ent_player->velocity.y = 0;
+        if (t == 1) {
+            cs = 1;
+            ent_player->acceleration.x = 0;
+            ent_player->acceleration.y = -1;
+            ent_player->animIndex = 2;
+            screen_message->position.x = 0;
+            screen_message->animIndex = 0;
+            screen_message->Update(1);
+            float s = 1.5;
+            if (ent_player->velocity.x < s * delta) {
+                ent_player->velocity.x += s * delta;
+                if (ent_player->velocity.x > 0) ent_player->velocity.x = 0;
+            }
+            if (ent_player->velocity.x > s * delta) {
+                ent_player->velocity.x -= s * delta;
+                if (ent_player->velocity.x < 0) ent_player->velocity.x = 0;
+            }
+        } else if (t == 3) {
+            cs = 2;
+            ent_player->acceleration.x = 0;
+            ent_player->acceleration.y = -1;
+            ent_player->animIndex = 3;
+            screen_message->position.x = 0;
+            screen_message->animIndex = 1;
+            screen_message->Update(1);
+            float s = 1.5;
+            if (ent_player->velocity.x < s * delta) {
+                ent_player->velocity.x += s * delta;
+                if (ent_player->velocity.x > 0) ent_player->velocity.x = 0;
+            }
+            if (ent_player->velocity.x > s * delta) {
+                ent_player->velocity.x -= s * delta;
+                if (ent_player->velocity.x < 0) ent_player->velocity.x = 0;
+            }
+        }
+    }
+    fuel_bar->scale.y = (fuel / fuel_max) * 4;
+    fuel_bar->Update(delta);
+
+    //if (ent_player->position.y < -dim_y) ent_player->position.y = -dim_y;
+    //if (ent_player->position.y > dim_y) ent_player->position.y = dim_y;
+    //if (ent_to_tile_y(py_old) != ent_to_tile_y(ent_player->position.y)) {
+=======
+    wintext_position.x = 0;
+    if (wintext_timer > 0) {
+        wintext_position.y = 0;
+        wintext_timer -= 1*delta;
+    }
+    else {
+        wintext_position.y = 100;
+    }
+
+    paddle1_position.y += 2 * ball_speed * paddle1_dir * delta;
+    paddle2_position.y += 2 * ball_speed * paddle2_dir * delta;
+    if (paddle1_position.y < -dim_y) paddle1_position.y = -dim_y;
+    if (paddle1_position.y > dim_y) paddle1_position.y = dim_y;
+    if (paddle2_position.y < -dim_y) paddle2_position.y = -dim_y;
+    if (paddle2_position.y > dim_y) paddle2_position.y = dim_y;
+
+    ball_position.x += ball_velocity.x*delta;
+    ball_position.y += ball_velocity.y*delta;
+    if (ball_position.y < -dim_y) {
+        ball_position.y = -dim_y*2 - ball_position.y;
+        ball_velocity.y = -ball_velocity.y;
+    } else if (ball_position.y > dim_y) {
+        ball_position.y = dim_y*2 - ball_position.y;
+        ball_velocity.y = -ball_velocity.y;
+    }
+    if (ball_position.x < -dim_x2 && ball_position.y > paddle1_position.y - paddle_width && ball_position.y < paddle1_position.y + paddle_width) {
+        ball_position.x = -dim_x2 * 2 - ball_position.x;
+        ball_velocity.x = -ball_velocity.x;
+    } else if (ball_position.x > dim_x2 && ball_position.y > paddle2_position.y - paddle_width && ball_position.y < paddle2_position.y + paddle_width) {
+        ball_position.x = dim_x2 * 2 - ball_position.x;
+        ball_velocity.x = -ball_velocity.x;
+    }
+    if (ball_position.x < -dim_x) {
+        whowon = 1;
+        score -= 1;
+        ball_position.x = 0;
+        ball_position.y = 0;
+        ball_velocity.x = ball_speed; //winner serves
+        ball_velocity.y = ball_speed;
+        paddle1_position.y = 0;
+        paddle2_position.y = 0;
+        paddle1_dir = 0;
+        paddle2_dir = 0;
+        ball_speed = 1 + abs(score)*0.1; //consecutive wins raise the difficulty
+        wintext_timer = 1000;
+    } else if (ball_position.x > dim_x) {
+        whowon = -1;
+        score += 1;
+        ball_position.x = 0;
+        ball_position.y = 0;
+        ball_velocity.x = -ball_speed; //winner serves
+        ball_velocity.y = ball_speed;
+        paddle1_position.y = 0;
+        paddle2_position.y = 0;
+        paddle1_dir = 0;
+        paddle2_dir = 0;
+        ball_speed = 1 + abs(score) * 0.1; //consecutive wins raise the difficulty
+        wintext_timer = 1000;
+    }
+
+    paddle1_modelMatrix = glm::translate(glm::mat4(1.0f), paddle1_position);
+    paddle1_modelMatrix = glm::scale(paddle1_modelMatrix, paddle1_scale);
+    paddle2_modelMatrix = glm::translate(glm::mat4(1.0f), paddle2_position);
+    paddle2_modelMatrix = glm::scale(paddle2_modelMatrix, paddle2_scale);
+    ball_modelMatrix = glm::translate(glm::mat4(1.0f), ball_position);
+    ball_modelMatrix = glm::rotate(ball_modelMatrix, time_total*3, vec_out);
+    ball_modelMatrix = glm::scale(ball_modelMatrix, ball_scale);
+    wintext_modelMatrix = glm::translate(glm::mat4(1.0f), wintext_position);
+>>>>>>> f7150b59eab542bf03d93ca167bd52ec6282bc54
 }
 
 void Render() {
     glClear(GL_COLOR_BUFFER_BIT);
 
-    glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertices2);
-    glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, uvs2);
+<<<<<<< HEAD
+    for (int iy = 0; iy < tiles_height; iy++) {
+        tile_drawer->position.y = -(iy - 7)*0.5;
+        for (int ix = 0; ix < tiles_width; ix++) {
+            tile_drawer->position.x = (ix - 9.5)*0.5;
+            tile_drawer->animIndex = tiles[iy][ix];
+            tile_drawer->Update(1); //delta not needed here since it doesnt actually "move"
+            tile_drawer->Render(&program);
+        }
+    }
+    ent_player->Render(&program);
+    screen_message->Render(&program);
+    fuel_bar->Render(&program);
+=======
+    glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, paddle2_vertices);
+    glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, paddle2_uvs);
     glEnableVertexAttribArray(program.positionAttribute);
     glEnableVertexAttribArray(program.texCoordAttribute);
-    program.SetModelMatrix(modelMatrix2);
-    glBindTexture(GL_TEXTURE_2D, texture2);
+    program.SetModelMatrix(paddle2_modelMatrix);
+    glBindTexture(GL_TEXTURE_2D, paddle2_texture);
     glDrawArrays(GL_TRIANGLES, 0, 6);
     glDisableVertexAttribArray(program.positionAttribute);
     glDisableVertexAttribArray(program.texCoordAttribute);
 
-    glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, vertices1);
-    glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, uvs1);
+    glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, paddle1_vertices);
+    glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, paddle1_uvs);
     glEnableVertexAttribArray(program.positionAttribute);
     glEnableVertexAttribArray(program.texCoordAttribute);
-    program.SetModelMatrix(modelMatrix1);
-    glBindTexture(GL_TEXTURE_2D, texture1);
+    program.SetModelMatrix(paddle1_modelMatrix);
+    glBindTexture(GL_TEXTURE_2D, paddle1_texture);
     glDrawArrays(GL_TRIANGLES, 0, 6);
     glDisableVertexAttribArray(program.positionAttribute);
     glDisableVertexAttribArray(program.texCoordAttribute);
+
+    glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, ball_vertices);
+    glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, ball_uvs);
+    glEnableVertexAttribArray(program.positionAttribute);
+    glEnableVertexAttribArray(program.texCoordAttribute);
+    program.SetModelMatrix(ball_modelMatrix);
+    glBindTexture(GL_TEXTURE_2D, ball_texture);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glDisableVertexAttribArray(program.positionAttribute);
+    glDisableVertexAttribArray(program.texCoordAttribute);
+
+    glVertexAttribPointer(program.positionAttribute, 2, GL_FLOAT, false, 0, wintext_vertices);
+    if (whowon == -1) {
+        glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, wintext_uvs_1);
+    } else if (whowon == 1) {
+        glVertexAttribPointer(program.texCoordAttribute, 2, GL_FLOAT, false, 0, wintext_uvs_2);
+    }
+    glEnableVertexAttribArray(program.positionAttribute);
+    glEnableVertexAttribArray(program.texCoordAttribute);
+    program.SetModelMatrix(wintext_modelMatrix);
+    glBindTexture(GL_TEXTURE_2D, wintext_texture);
+    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glDisableVertexAttribArray(program.positionAttribute);
+    glDisableVertexAttribArray(program.texCoordAttribute);
+>>>>>>> f7150b59eab542bf03d93ca167bd52ec6282bc54
 
     SDL_GL_SwapWindow(displayWindow);
 }
