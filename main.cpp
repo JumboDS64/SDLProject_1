@@ -1,7 +1,7 @@
 /**
-* Author: JumboDS64
-* Assignment: Lunar Lander
-* Date due: 2023-07-11, 11:54pm
+* Author: JumboDS64 / Julien Olsson
+* Assignment: Rise of the AI
+* Date due: 2023-07-21, xx:xxpm
 * I pledge that I have completed this assignment without
 * collaborating with anyone else, in conformance with the
 * NYU School of Engineering Policies and Procedures on
@@ -16,6 +16,7 @@
 #endif
 
 #define GL_GLEXT_PROTOTYPES 1
+#include <vector>
 #include <SDL.h>
 #include <SDL_opengl.h>
 #include "glm/mat4x4.hpp"
@@ -23,6 +24,8 @@
 #include "ShaderProgram.h"
 #include "stb_image.h"
 
+#include "Map.h"
+#include "Map.cpp"
 #include "Entity.h"
 
 /**struct GameState {
@@ -41,15 +44,9 @@ float delta;
 float time_total;
 const glm::vec3 vec_out = glm::vec3(0, 0, 1);
 
-Entity* ent_player;
-
 float dim_x = 4.75;
 float dim_x2 = 4.25;
 float dim_y = 3.5;
-int score = 0;
-int whowon = 0;
-int paddle1_dir = 0;
-int paddle2_dir = 0;
 float paddle_width = 1;
 
 bool key_left = false;
@@ -57,38 +54,51 @@ bool key_right = false;
 bool key_up = false;
 bool key_down = false;
 
-int cs = 0; //0 = normal, 1 = lose, 2 = win
-int cs_timer = 0;
+bool paused = false;
 
-int tiles_width = 20;
-int tiles_height = 15;
-int tile_render_size = 32;
-int tiles[15][20] = {
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 2, 1, 1},
-    {1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1},
-    {1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 1, 3, 1, 0, 0, 0, 0},
-    {1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0}
+Map* map;
+unsigned int LEVEL_1_DATA[] =
+{
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    1, 1, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    2, 2, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 0, 2, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 0, 2, 2, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 0, 2, 2, 2, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    2, 2, 2, 0, 2, 2, 2, 2, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
 };
-Entity* tile_drawer;
+Entity* ent_camera;
+Entity_Player* ent_player;
+Entity_Enemy1* ent_enemy1;
+Entity_Enemy2* ent_enemy2;
+Entity_Enemy3* ent_enemy3;
+
 /**
 * corners = 5, 3.75 (divide each dimension by 4)
-* 
+*
 **/
-Entity* screen_message;
-Entity* fuel_bar;
-float fuel = 30;
-float fuel_max = 30;
+
+float gravity = -1;
+
+const int FONTBANK_SIZE = 16;
+GLuint font_tex;
 
 GLuint load_texture(const char* filepath) {
     // STEP 1: Loading the image file
@@ -118,7 +128,7 @@ GLuint load_texture(const char* filepath) {
 
 void Initialize() {
     SDL_Init(SDL_INIT_VIDEO);
-    displayWindow = SDL_CreateWindow("Luner Landar", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, SDL_WINDOW_OPENGL);
+    displayWindow = SDL_CreateWindow("Platformr", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 640, 480, SDL_WINDOW_OPENGL);
     SDL_GLContext context = SDL_GL_CreateContext(displayWindow);
     SDL_GL_MakeCurrent(displayWindow, context);
 
@@ -128,40 +138,22 @@ void Initialize() {
 
     glViewport(0, 0, 640, 480);
 
+    font_tex = load_texture("font1.png");
+
     program.Load("shaders/vertex_textured.glsl", "shaders/fragment_textured.glsl");
 
     viewMatrix = glm::mat4(1.0f);
     projectionMatrix = glm::ortho(-5.0f, 5.0f, -3.75f, 3.75f, -1.0f, 1.0f);
 
-    ent_player = new Entity();
-    ent_player->position = glm::vec3(0);
-    ent_player->position.x = 3.75;
-    ent_player->position.y = 1;
-    ent_player->scale = glm::vec3(0.5);
-    ent_player->textureID = load_texture("saucer.png");
-    ent_player->animCols = 4;
-    ent_player->animRows = 4;
+    map = new Map(LEVEL_1_DATA, load_texture("tiles.png"), 0.5f, 4, 4);
 
-    tile_drawer = new Entity();
-    tile_drawer->scale = glm::vec3(0.5);
-    tile_drawer->textureID = load_texture("tiles.png");
-    tile_drawer->animCols = 4;
-    tile_drawer->animRows = 4;
+    ent_camera = new Entity(0, 0);
 
-    screen_message = new Entity();
-    screen_message->scale = glm::vec3(4);
-    screen_message->textureID = load_texture("wintext.png");
-    screen_message->animCols = 2;
-    screen_message->animRows = 1;
-    screen_message->position.x = 100;
-    screen_message->Update(1);
-
-    fuel_bar = new Entity();
-    fuel_bar->position.x = -4;
-    fuel_bar->scale = glm::vec3(1);
-    fuel_bar->scale.x = 0.5;
-    fuel_bar->scale.y = 4;
-    fuel_bar->textureID = load_texture("fuel.png");
+    ent_player = new Entity_Player(2, -2, load_texture("player.png"));
+    GLuint enemies_tex = load_texture("enemies.png");
+    ent_enemy1 = new Entity_Enemy1(4, -2, enemies_tex);
+    ent_enemy2 = new Entity_Enemy2(6, -2, enemies_tex);
+    ent_enemy3 = new Entity_Enemy3(8, -2, enemies_tex);
 
     time_total = 0;
 
@@ -197,140 +189,165 @@ void ProcessInput() {
     key_down = keys[SDL_SCANCODE_S];
 }
 
-int ent_to_tile_x(float x) {
-    int out = (int)(x*2 + tiles_width/2.0);
-    if (out >= tiles_width) return tiles_width - 1;
-    else if (out < 0) return 0;
-}
-int ent_to_tile_y(float y) {
-    int out = tiles_height-(int)(y*2 + tiles_height/2.0)-1;
-    if (out >= tiles_height) return tiles_height - 1;
-    else if (out < 0) return 0;
-}
-int tile_at(float x, float y) {
-    return tiles[ent_to_tile_y(y)][ent_to_tile_x(x)];
-}
-int tile_at(Entity* e) {
-    return tiles[ent_to_tile_y(e->position.y)][ent_to_tile_x(e->position.x)];
-}
-
 void Update() {
     time_c = (float)SDL_GetTicks() / 1000.;
     delta = time_c - time_p;
     time_p = time_c;
     time_total += delta;
 
-    if (cs == 0) {
-        if (key_left && fuel > 0) {
-            ent_player->acceleration.x = -2;
-            fuel -= 2 * delta;
+    if (!paused) {
+
+        if (key_left) {
+            ent_player->sprite->animIndex = (int)(time_total * 8) % 2;
+            ent_player->velocity.x += -12 * delta;
+            if (ent_player->velocity.x < -3) ent_player->velocity.x = -3;
         }
-        else if (key_right && fuel > 0) {
-            ent_player->acceleration.x = 2;
-            fuel -= 2 * delta;
+        else if (key_right) {
+            ent_player->sprite->animIndex = (int)(time_total * 8) % 2;
+            ent_player->velocity.x += 12 * delta;
+            if (ent_player->velocity.x > 3) ent_player->velocity.x = 3;
         }
         else {
-            ent_player->acceleration.x = 0;
-            float s = 1.5;
-            if (ent_player->velocity.x < s * delta) {
-                ent_player->velocity.x += s * delta;
-                if (ent_player->velocity.x > 0) ent_player->velocity.x = 0;
-            }
-            if (ent_player->velocity.x > s * delta) {
-                ent_player->velocity.x -= s * delta;
+            ent_player->sprite->animIndex = 0;
+            if (ent_player->velocity.x > 0) {
+                ent_player->velocity.x -= 12 * delta;
                 if (ent_player->velocity.x < 0) ent_player->velocity.x = 0;
             }
+            else if (ent_player->velocity.x < 0) {
+                ent_player->velocity.x += 12 * delta;
+                if (ent_player->velocity.x > 0) ent_player->velocity.x = 0;
+            }
         }
-        if (key_up && fuel > 0) {
-            ent_player->acceleration.y = 2;
-            ent_player->animIndex = 1;
-            fuel -= 2 * delta;
+        if (ent_player->collided_bottom && key_up) {
+            ent_player->velocity.y = 3;
         }
         else {
-            ent_player->acceleration.y = -1;
-            ent_player->animIndex = 0;
+            if (!ent_player->collided_bottom) ent_player->velocity.y -= 3 * delta;
+            else ent_player->velocity.y = 0;
         }
-        if (ent_player->velocity.y < -10) {
-            ent_player->velocity.y = -10;
+        
+        if (!ent_enemy1->ded) {
+            ent_player->check_collision(ent_enemy1);
+            ent_enemy1->Update(delta, map);
         }
+        if (!ent_enemy2->ded) {
+            ent_player->check_collision(ent_enemy2);
+            ent_enemy2->Update(delta, map);
+        }
+        if (!ent_enemy3->ded) {
+            ent_player->check_collision(ent_enemy3);
+            ent_enemy3->Update(delta, map, ent_player->position);
+        }
+        ent_player->Update(delta, map);
     }
-    if (fuel < 0) fuel = 0;
 
-    float px_old = ent_player->position.x;
-    float py_old = ent_player->position.y;
-    ent_player->Update(delta);
-
-    int t = tile_at(ent_player->position.x, ent_player->position.y - 0.25);
-    if (t != 0) {
-        ent_player->position.x = px_old;
-        ent_player->velocity.x = 0;
-        ent_player->position.y = py_old;
-        ent_player->velocity.y = 0;
-        if (t == 1) {
-            cs = 1;
-            ent_player->acceleration.x = 0;
-            ent_player->acceleration.y = -1;
-            ent_player->animIndex = 2;
-            screen_message->position.x = 0;
-            screen_message->animIndex = 0;
-            screen_message->Update(1);
-            float s = 1.5;
-            if (ent_player->velocity.x < s * delta) {
-                ent_player->velocity.x += s * delta;
-                if (ent_player->velocity.x > 0) ent_player->velocity.x = 0;
-            }
-            if (ent_player->velocity.x > s * delta) {
-                ent_player->velocity.x -= s * delta;
-                if (ent_player->velocity.x < 0) ent_player->velocity.x = 0;
-            }
-        } else if (t == 3) {
-            cs = 2;
-            ent_player->acceleration.x = 0;
-            ent_player->acceleration.y = -1;
-            ent_player->animIndex = 3;
-            screen_message->position.x = 0;
-            screen_message->animIndex = 1;
-            screen_message->Update(1);
-            float s = 1.5;
-            if (ent_player->velocity.x < s * delta) {
-                ent_player->velocity.x += s * delta;
-                if (ent_player->velocity.x > 0) ent_player->velocity.x = 0;
-            }
-            if (ent_player->velocity.x > s * delta) {
-                ent_player->velocity.x -= s * delta;
-                if (ent_player->velocity.x < 0) ent_player->velocity.x = 0;
-            }
-        }
-    }
-    fuel_bar->scale.y = (fuel / fuel_max) * 4;
-    fuel_bar->Update(delta);
+    //collision doesnt work with corners but alas
 
     //if (ent_player->position.y < -dim_y) ent_player->position.y = -dim_y;
     //if (ent_player->position.y > dim_y) ent_player->position.y = dim_y;
     //if (ent_to_tile_y(py_old) != ent_to_tile_y(ent_player->position.y)) {
 }
 
+void DrawText(ShaderProgram* program, GLuint font_texture_id, std::string text, float screen_size, float spacing, glm::vec3 position)
+{
+    // Scale the size of the fontbank in the UV-plane
+    // We will use this for spacing and positioning
+    float width = 1.0f / FONTBANK_SIZE;
+    float height = 1.0f / FONTBANK_SIZE;
+
+    // Instead of having a single pair of arrays, we'll have a series of pairs—one for each character
+    // Don't forget to include <vector>!
+    std::vector<float> vertices;
+    std::vector<float> texture_coordinates;
+
+    // For every character...
+    for (int i = 0; i < text.size(); i++) {
+        // 1. Get their index in the spritesheet, as well as their offset (i.e. their position
+        //    relative to the whole sentence)
+        int spritesheet_index = (int)text[i];  // ascii value of character
+        float offset = (screen_size + spacing) * i;
+
+        // 2. Using the spritesheet index, we can calculate our U- and V-coordinates
+        float u_coordinate = (float)(spritesheet_index % FONTBANK_SIZE) / FONTBANK_SIZE;
+        float v_coordinate = (float)(spritesheet_index / FONTBANK_SIZE) / FONTBANK_SIZE;
+
+        // 3. Inset the current pair in both vectors
+        vertices.insert(vertices.end(), {
+            offset + (-0.5f * screen_size), 0.5f * screen_size,
+            offset + (-0.5f * screen_size), -0.5f * screen_size,
+            offset + (0.5f * screen_size), 0.5f * screen_size,
+            offset + (0.5f * screen_size), -0.5f * screen_size,
+            offset + (0.5f * screen_size), 0.5f * screen_size,
+            offset + (-0.5f * screen_size), -0.5f * screen_size,
+            });
+
+        texture_coordinates.insert(texture_coordinates.end(), {
+            u_coordinate, v_coordinate,
+            u_coordinate, v_coordinate + height,
+            u_coordinate + width, v_coordinate,
+            u_coordinate + width, v_coordinate + height,
+            u_coordinate + width, v_coordinate,
+            u_coordinate, v_coordinate + height,
+            });
+    }
+
+    // 4. And render all of them using the pairs
+    glm::mat4 model_matrix = glm::mat4(1.0f);
+    model_matrix = glm::translate(model_matrix, position);
+
+    program->SetModelMatrix(model_matrix);
+    glUseProgram(program->programID);
+
+    glVertexAttribPointer(program->positionAttribute, 2, GL_FLOAT, false, 0, vertices.data());
+    glEnableVertexAttribArray(program->positionAttribute);
+    glVertexAttribPointer(program->texCoordAttribute, 2, GL_FLOAT, false, 0, texture_coordinates.data());
+    glEnableVertexAttribArray(program->texCoordAttribute);
+
+    glBindTexture(GL_TEXTURE_2D, font_texture_id);
+    glDrawArrays(GL_TRIANGLES, 0, (int)(text.size() * 6));
+
+    glDisableVertexAttribArray(program->positionAttribute);
+    glDisableVertexAttribArray(program->texCoordAttribute);
+}
+
 void Render() {
     glClear(GL_COLOR_BUFFER_BIT);
 
-    for (int iy = 0; iy < tiles_height; iy++) {
-        tile_drawer->position.y = -(iy - 7)*0.5;
-        for (int ix = 0; ix < tiles_width; ix++) {
-            tile_drawer->position.x = (ix - 9.5)*0.5;
-            tile_drawer->animIndex = tiles[iy][ix];
-            tile_drawer->Update(1); //delta not needed here since it doesnt actually "move"
-            tile_drawer->Render(&program);
-        }
-    }
+    viewMatrix = glm::mat4(1.0f);
+    viewMatrix = glm::translate(viewMatrix, -(ent_player->position));//ent_camera
+    program.SetViewMatrix(viewMatrix);
+
+    //dont render camera
+    map->render(&program);
     ent_player->Render(&program);
-    screen_message->Render(&program);
-    fuel_bar->Render(&program);
+    if (!ent_enemy1->ded) {
+        ent_enemy1->Render(&program);
+    }
+    if (!ent_enemy2->ded) {
+        ent_enemy2->Render(&program);
+    }
+    if (!ent_enemy3->ded) {
+        ent_enemy3->Render(&program);
+    }
+    if (ent_player->win_state == -1) {
+        paused = true;
+        DrawText(&program, font_tex, "You lose...", 0.5, 0, ent_player->position);
+    } else if (ent_player->win_state == 3) {
+        paused = true;
+        DrawText(&program, font_tex, "You win!", 0.5, 0, ent_player->position);
+    }
 
     SDL_GL_SwapWindow(displayWindow);
 }
 
 void Shutdown() {
     SDL_Quit();
+    delete ent_camera;
+    delete map;
+    delete ent_player;
+    delete ent_enemy1;
+    delete ent_enemy2;
+    delete ent_enemy3;
 }
 
 int main(int argc, char* argv[]) {
