@@ -22,7 +22,7 @@ private:
     unsigned int* m_level_data;
     GLuint m_texture_id;
 
-    float m_tile_size;
+    float tileSize;
     int   m_tile_count_x;
     int   m_tile_count_y;
 
@@ -30,9 +30,10 @@ private:
     // So we need vectors to store their respective vertices and texture coordinates
     std::vector<float> m_vertices;
     std::vector<float> m_texture_coordinates;
-
-    // The boundaries of the map
-    float m_left_bound, m_right_bound, m_top_bound, m_bottom_bound;
+    float getTopAt_(float x, float y, int bias);
+    float getBottomAt_(float x, float y, int bias);
+    float getLeftAt_(float x, float y, int bias);
+    float getRightAt_(float x, float y, int bias);
 
 public:
     // Constructor
@@ -42,10 +43,18 @@ public:
     // Methods
     void build();
     void render(ShaderProgram* program);
-    bool is_solid(glm::vec3 position);
-    float round_to_corner_x(float x);
-    float round_to_corner_y(float y);
-    bool is_solid(glm::vec3 position, float* penetration_x, float* penetration_y);
+    int getTileTypeAt(float x, float y, int bias_x, int bias_y);
+    int getTileTypeAt_int(int tile_x, int tile_y);
+    float getTopmap(int tile_type, float x);
+    float getBottommap(int tile_type, float x);
+    float getLeftmap(int tile_type, float y);
+    float getRightmap(int tile_type, float y);
+    float getTopAt(float x, float y, int bias);
+    float getBottomAt(float x, float y, int bias);
+    float getLeftAt(float x, float y, int bias);
+    float getRightAt(float x, float y, int bias);
+    float mathfloorToTile(float n);
+    float mathceilToTile(float n);
 
     // Getters
     int const get_width()  const { return m_width; }
@@ -54,15 +63,10 @@ public:
     unsigned int* const get_level_data() const { return m_level_data; }
     GLuint        const get_texture_id() const { return m_texture_id; }
 
-    float const get_tile_size()    const { return m_tile_size; }
+    float const get_tile_size()    const { return tileSize; }
     int   const get_tile_count_x() const { return m_tile_count_x; }
     int   const get_tile_count_y() const { return m_tile_count_y; }
 
     std::vector<float> const get_vertices()            const { return m_vertices; }
     std::vector<float> const get_texture_coordinates() const { return m_texture_coordinates; }
-
-    float const get_left_bound()   const { return m_left_bound; }
-    float const get_right_bound()  const { return m_right_bound; }
-    float const get_top_bound()    const { return m_top_bound; }
-    float const get_bottom_bound() const { return m_bottom_bound; }
 };

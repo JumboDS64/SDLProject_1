@@ -10,6 +10,32 @@
 
 #include "Entity.h"
 #include "Map.h"
+#include "stb_image.h"
+
+bool GameState::addEntity(Entity* e) {
+    if (entities_cur < entities_max) {
+        entities[entities_cur] = e;
+        e->id = entities_cur;
+        entities_cur += 1;
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+bool GameState::destroyEntity(int id) {
+    if (entities_cur > 0) {
+        delete entities[id];
+        entities[id] = entities[entities_cur];
+        entities[id]->id = id;
+        entities[entities_cur] = NULL;
+        entities_cur -= 1;
+        return true;
+    }
+    else {
+        return false;
+    }
+}
 
 Sprite::Sprite(float x, float y) {
     position = glm::vec3(0);
@@ -17,9 +43,35 @@ Sprite::Sprite(float x, float y) {
     position.y = y;
     modelMatrix = glm::mat4(1.0f);
 }
+void Sprite::load_texture(const char* filepath) {
+    // STEP 1: Loading the image file
+    int width, height, number_of_components;
+    unsigned char* image = stbi_load(filepath, &width, &height, &number_of_components, STBI_rgb_alpha);
+
+    if (image == NULL) {
+        std::cout << "Unable to load image. Make sure the path is correct.\n";
+        assert(false);
+    }
+
+    // STEP 2: Generating and binding a texture ID to our image
+    GLuint _textureID;
+    glGenTextures(1, &_textureID);
+    glBindTexture(GL_TEXTURE_2D, _textureID);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+
+    // STEP 3: Setting our texture filter parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+    // STEP 4: Releasing our file from memory and returning our texture id
+    stbi_image_free(image);
+
+    textureID = _textureID;
+}
 void Sprite::Render(ShaderProgram* program) {
     modelMatrix = glm::mat4(1.0f);
     modelMatrix = glm::translate(modelMatrix, position);
+    modelMatrix = glm::rotate(modelMatrix, rotation, glm::vec3(0.0f, 0.0f, 1.0f));
     modelMatrix = glm::scale(modelMatrix, scale);
 
     program->SetModelMatrix(modelMatrix);
@@ -32,8 +84,6 @@ void Sprite::Render(ShaderProgram* program) {
 
     float texCoords[] = { u, v + height, u + width, v + height, u + width, v,
         u, v + height, u + width, v, u, v };
-
-    float vertices[] = { -0.5, -0.5, 0.5, -0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, 0.5 };
 
     glBindTexture(GL_TEXTURE_2D, textureID);
 
@@ -55,137 +105,435 @@ Entity::Entity(float x, float y) {
     position.y = y;
     sprite = new Sprite(x,y);
     velocity = glm::vec3(0);
+    id = -1;
 }
 
-void Entity::Update(float deltaTime, Map *map) {
+void Entity::act(float deltaTime, Map *map, GameState* gameState) {
+    if (collided_top && velocity.y < 0) velocity.y = 0;
+    if (collided_bottom && velocity.y > 0) velocity.y = 0;
+    if (collided_left && velocity.x < 0) velocity.x = 0;
+    if (collided_right && velocity.x > 0) velocity.x = 0;
     position += velocity * deltaTime;
-    check_collision(map);
     sprite->position = position;
-    sprite->position.y += 0.1;
+    sprite->position.y += sprite_offsetY;
 }
 
-void Entity::Render(ShaderProgram* program) {
+void Entity::render(ShaderProgram* program) {
     sprite->Render(program);
 }
+void Entity::doCollision(Map* map) {
+}
+void Entity::resolveCollision(float x, float y, float left, float right, float top, float bottom) {
+    if (isAnchored) return;
+    //assumes that there IS an overlap
+    float overlap_left = (x + right) - (position.x - colbox_left); //on this entity's left side
+    float overlap_right = (position.x + colbox_right) - (x - left); //ditto
+    float overlap_top = (y + bottom) - (position.y - colbox_top);
+    float overlap_bottom = (position.y + colbox_bottom) - (y - top);
+    float overlap_width = overlap_left;
+    if (overlap_left > overlap_right) overlap_width = overlap_right;
+    float overlap_height = overlap_top;
+    if (overlap_top > overlap_bottom) overlap_height = overlap_bottom;
+    float x_avg = x + (right - left) / 2.0;
+    float y_avg = y + (bottom - top) / 2.0;
+    if (overlap_width > overlap_height) {
+        if (position.y <= y_avg) {
+            position.y = y - top - colbox_bottom;
+            collided_bottom = true;
+        }
+        else if (position.y > y_avg) {
+            position.y = y + bottom + colbox_top;
+            collided_top = true;
+        }
+    }
+    else {
+        if (position.x <= x_avg) {
+            position.x = x - left - colbox_right;
+            collided_right = true;
+        }
+        else if (position.x > x_avg) {
+            position.x = x + right + colbox_left;
+            collided_left = true;
+        }
+    }
+}
+void Entity::resolveCollision(Entity* other) {
+    if (!isSolid || !other->isSolid) return;
+    resolveCollision(other->position.x, other->position.y, other->colbox_left, other->colbox_right, other->colbox_top, other->colbox_bottom);
+}
+void Entity::reactCollision(Entity* other) {
+}
+bool Entity::isPointInColbox(float x, float y) {
+    return (position.x - colbox_left < x && x < position.x + colbox_right && position.y - colbox_top < y && y < position.y + colbox_bottom);
+}
 
-void Entity::check_collision(Map* map) {
-    glm::vec3 temp = glm::vec3(position.x, position.y - colbox_height, 0); //bottom
-    collided_bottom = false;
-    if (map->is_solid(temp) && velocity.y < 0) {
-        position.y = map->round_to_corner_y(position.y + colbox_height) - 0.1;
-        velocity.y = 0;
-        collided_bottom = true;
-    }
-    temp.y = position.y + colbox_height; //top
-    collided_top = false;
-    if (map->is_solid(temp) && velocity.y > 0) {
-        position.y = map->round_to_corner_y(position.y - colbox_height);
-        velocity.y = 0;
-        collided_top = true;
-    }
-    temp.y = position.y;
-    temp.x = position.x - colbox_width; //left
-    collided_left = false;
-    if (map->is_solid(temp) && velocity.x < 0) {
-        position.x = map->round_to_corner_x(position.x + colbox_width);
-        velocity.x = 0;
+Entity_Player::Entity_Player(float x, float y) : Entity(x, y) {
+    sprite->load_texture("player.png");
+    sprite->animCols = 8;
+    sprite->animRows = 3;
+    sprite->scale = glm::vec3(3.125);
+    sprite_offsetY = -3.125 / 2.0;
+    colbox_top = 2.375;
+    colbox_bottom = 0;
+    colbox_left = 0.4375;
+    colbox_right = 0.4375;
+    face = 1;
+}
+void Entity_Player::doCollision(Map* map) {
+    //uses Classic Sonic method for now https://info.sonicretro.org/SPG:Solid_Tiles
+    float ul;
+    float dr;
+    float closest;
+    ul = map->getRightAt(position.x - colbox_left - 0.01, position.y - colbox_top + 0.1, +1);
+    dr = map->getRightAt(position.x - colbox_left - 0.01, position.y + colbox_bottom - 0.1, -1);
+    closest = ul;
+    if (dr > closest) closest = dr;
+    if (position.x - colbox_left - 0.01 < closest) {
+        position.x = closest + colbox_left + 0.01;
         collided_left = true;
     }
-    temp.x = position.x + colbox_width; //right
-    collided_right = false;
-    if (map->is_solid(temp) && velocity.x > 0) {
-        position.x = map->round_to_corner_x(position.x - colbox_width);
-        velocity.x = 0;
+    else collided_left = false;
+    ul = map->getLeftAt(position.x + colbox_right + 0.01, position.y - colbox_top + 0.1, +1);
+    dr = map->getLeftAt(position.x + colbox_right + 0.01, position.y + colbox_bottom - 0.1, -1);
+    closest = ul;
+    if (dr < closest) closest = dr;
+    if (position.x + colbox_right + 0.01 > closest) {
+        position.x = closest - colbox_right - 0.01;
         collided_right = true;
     }
+    else collided_right = false;
+    ul = map->getTopAt(position.x - colbox_left, position.y + colbox_bottom, +1);
+    dr = map->getTopAt(position.x + colbox_right, position.y + colbox_bottom, -1);
+    closest = ul;
+    if (dr < closest) closest = dr;
+    if (position.y + colbox_bottom > closest) {
+        position.y = closest - colbox_bottom;
+        collided_bottom = true;
+    }
+    else collided_bottom = false;
+    ul = map->getBottomAt(position.x - colbox_left, position.y - colbox_top, +1);
+    dr = map->getBottomAt(position.x + colbox_right, position.y - colbox_top, -1);
+    closest = ul;
+    if (dr > closest) closest = dr;
+    if (position.y - colbox_top < closest) {
+        position.y = closest + colbox_top;
+        collided_top = true;
+    }
+    else collided_top = false;
+}
+void Entity_Player::act(float deltaTime, Map* map, GameState* gameState) {
+    if (gameState->action_left) {
+        sprite->animIndex = 8 + floor(fmod(gameState->time_total * 14.0, 8.0));
+        velocity.x = -6;
+        face = -1;
+        sprite->scale.x = -3.125;
+    }
+    else if (gameState->action_right) {
+        sprite->animIndex = 8 + floor(fmod(gameState->time_total * 14.0, 8.0));
+        velocity.x = 6;
+        face = 1;
+        sprite->scale.x = 3.125;
+    }
+    else {
+        sprite->animIndex = 0;
+        velocity.x = 0;
+    }
+    if (collided_bottom && gameState->action_up) {
+        velocity.y = -20;
+    }
+    if (gameState->action_down) {
+        sprite->animIndex = 17;
+        if (gameState->entities[1]->isPointInColbox(position.x + 1.1 * face, position.y - 0.5)) {
+            if (((Entity_Crate*)(gameState->entities[1]))->isSliding == 0) {
+                ((Entity_Crate*)(gameState->entities[1]))->isSliding = face;
+            }
+        }
+    }
+    //std::cout << "test\n";
+    if (!collided_bottom) velocity.y += 48 * deltaTime;
+    Entity::act(deltaTime, map, gameState);
 }
 
-Entity_Player::Entity_Player(float x, float y, GLuint tex) : Entity(x, y) {
-    sprite->scale = glm::vec3(0.5);
-    sprite->textureID = tex;
-    sprite->animCols = 4;
-    sprite->animRows = 4;
-    colbox_height = 0.2;
-    colbox_width = 0.2;
+Entity_Crate::Entity_Crate(float x, float y) : Entity(x, y) {
+    sprite->load_texture("crate.png");
+    sprite->animCols = 1;
+    sprite->animRows = 1;
+    sprite->scale = glm::vec3(2.0);
+    sprite_offsetY = 0.0;
+    colbox_top = 1.0;
+    colbox_bottom = 1.0;
+    colbox_left = 1.0;
+    colbox_right = 1.0;
+    isSliding = 0;
 }
-void Entity_Player::check_collision(Entity* ent) {
-    if (position.x + colbox_width < ent->position.x - ent->colbox_width || position.x - colbox_width > ent->position.x + ent->colbox_width) return;
-    if (position.y + colbox_height >= ent->position.y - ent->colbox_height && position.y - colbox_height <= ent->position.y + ent->colbox_height) {
-        if (!ent->ded) {
-            if (position.y > ent->position.y) {
-                velocity.y = 2.5;
-                ent->ded = true;
-                win_state += 1;
-            }
-            else {
-                win_state = -1;
-            }
-        }
+void Entity_Crate::act(float deltaTime, Map* map, GameState* gameState) {
+    if (isSliding == 1) {
+        velocity.x = 15;
     }
+    else if (isSliding == -1) {
+        velocity.x = -15;
+    }
+    else {
+        velocity.x = 0;
+        if (!collided_bottom) velocity.y += 48 * deltaTime;
+    }
+    if (velocity.x == 0
+        && velocity.y == 0
+        && (map->getTileTypeAt(position.x - 0.25, position.y + 0.25, +1, -1) == 7
+            || map->getTileTypeAt(position.x + 0.25, position.y + 0.25, -1, -1) == 7)) {
+        gameState->levelWon = true;
+    }
+    Entity::act(deltaTime, map, gameState);
+}
+void Entity_Crate::doCollision(Map* map) {
+    float ul;
+    float dr;
+    float closest;
+    if (isSliding == 1) {
+        ul = map->getLeftAt(position.x + colbox_right, position.y - 0.3, +1);
+        dr = map->getLeftAt(position.x + colbox_right, position.y + 0.3, -1);
+        closest = ul;
+        if (dr < closest) closest = dr;
+        if (position.x + colbox_right > closest) {
+            position.x = closest - colbox_right - 0.01;
+            collided_right = true;
+            isSliding = 0;
+        }
+        else collided_right = false;
+    }
+    else if (isSliding == -1) {
+        ul = map->getRightAt(position.x - colbox_left, position.y - 0.3, +1);
+        dr = map->getRightAt(position.x - colbox_left, position.y + 0.3, -1);
+        closest = ul;
+        if (dr > closest) closest = dr;
+        if (position.x - colbox_left < closest) {
+            position.x = closest + colbox_left + 0.01;
+            collided_left = true;
+            isSliding = 0;
+        }
+        else collided_left = false;
+    }
+
+    ul = map->getTopAt(position.x - colbox_left, position.y + colbox_bottom, +1);
+    dr = map->getTopAt(position.x + colbox_right, position.y + colbox_bottom, -1);
+    closest = ul;
+    if (dr < closest) closest = dr;
+    if (position.y + colbox_bottom > closest) {
+        position.y = closest - colbox_bottom;
+        collided_bottom = true;
+    }
+    else collided_bottom = false;
+    ul = map->getBottomAt(position.x - colbox_left, position.y - colbox_top, +1);
+    dr = map->getBottomAt(position.x + colbox_right, position.y - colbox_top, -1);
+    closest = ul;
+    if (dr > closest) closest = dr;
+    if (position.y - colbox_top < closest) {
+        position.y = closest + colbox_top;
+        collided_top = true;
+    }
+    else collided_top = false;
 }
 
-Entity_Enemy1::Entity_Enemy1(float x, float y, GLuint tex) : Entity(x, y) {
-    sprite->scale = glm::vec3(0.5);
-    sprite->textureID = tex;
+Entity_Button::Entity_Button(float x, float y, int _color) : Entity(x, y) {
+    sprite->load_texture("button.png");
     sprite->animCols = 4;
-    sprite->animRows = 4;
-    sprite->animIndex = 0;
-    colbox_height = 0.2;
-    colbox_width = 0.2;
-    face = -1;
+    sprite->animRows = 3;
+    sprite->animIndex = 4*color;
+    sprite->scale = glm::vec3(2.0);
+    sprite_offsetY = 0.0;
+    colbox_top = 1.0;
+    colbox_bottom = 0.0;
+    colbox_left = 1.0;
+    colbox_right = 1.0;
+    color = _color;
+    isSolid = false;
+    isAnchored = true;
 }
-void Entity_Enemy1::Update(float deltaTime, Map* map) {
-    if (!collided_bottom) {
-        velocity.y -= 4 * deltaTime;
-    }
-    if (face == 1) {
-        velocity.x = 1;
-        if (collided_right) {
-            face = -1;
+void Entity_Button::act(float deltaTime, Map* map, GameState* gameState) {
+    Entity::act(deltaTime, map, gameState);
+    if (!isDown_p && isDown) {
+        switch (color) {
+        case 0:
+            gameState->flag_redActive = !gameState->flag_redActive;
+            break;
+        case 1:
+            gameState->flag_greenActive = !gameState->flag_greenActive;
+            break;
         }
     }
-    else if (face == -1) {
-        velocity.x = -1;
-        if (collided_left) {
-            face = 1;
+    isDown_p = isDown;
+    isDown = false;
+}
+void Entity_Button::reactCollision(Entity* other) {
+    isDown = true;
+}
+
+Entity_Gate::Entity_Gate(float x_, float y_, int _color, int _dir) : Entity(x_ + 0.5, y_ + 0.5) {
+    float x = x_ + 0.5;
+    float y = y_ + 0.5;
+    sprite->load_texture("gate1.png");
+    sprite->animCols = 3;
+    sprite->animRows = 3;
+    sprite->animIndex = color*3;
+    sprite->scale = glm::vec3(1.0);
+    sprite_offsetY = 0.0;
+    sprite_shaft = new Sprite(x, y);
+    sprite_shaft->load_texture("gate2.png"); //for the animation of it opening ill have to fiddle with the UVs of the sprite's model
+    sprite_shaft->animCols = 1;
+    sprite_shaft->animRows = 3;
+    sprite_shaft->animIndex = color;
+    sprite_shaft->scale = glm::vec3(1.0);
+    sprite_cap = new Sprite(x, y);
+    sprite_cap->textureID = sprite->textureID;
+    sprite_cap->animCols = 3;
+    sprite_cap->animRows = 3;
+    sprite_cap->animIndex = 2 + color * 3;
+    sprite_cap->scale = glm::vec3(1.0);
+    colbox_top = 0.5;
+    colbox_bottom = 0.5;
+    colbox_left = 0.5;
+    colbox_right = 0.5;
+    isAnchored = true;
+    color = _color;
+    dir = _dir;
+    switch (dir) {
+    case 0:
+        sprite->rotation = 0;
+        sprite_shaft->rotation = 0;
+        sprite_cap->rotation = 0;
+        break;
+    case 1:
+        sprite->rotation = 1.57079632679;
+        sprite_shaft->rotation = 1.57079632679;
+        sprite_cap->rotation = 1.57079632679;
+        break;
+    case 2:
+        sprite->rotation = 3.14159265359;
+        sprite_shaft->rotation = 3.14159265359;
+        sprite_cap->rotation = 3.14159265359;
+        break;
+    case 3:
+        sprite->rotation = 4.71238898038;
+        sprite_shaft->rotation = 4.71238898038;
+        sprite_cap->rotation = 4.71238898038;
+        break;
+    }
+}
+void Entity_Gate::act(float deltaTime, Map* map, GameState* gameState) {
+    Entity::act(deltaTime, map, gameState);
+    bool canExtend = true;
+    switch (dir) {
+    case 0:
+        if (collided_right) canExtend = false;
+        colbox_right = 0.5 + shaftLen;
+        sprite_cap->position.x = position.x + shaftLen;
+        break;
+    case 1:
+        if (collided_bottom) canExtend = false;
+        colbox_bottom = 0.5 + shaftLen;
+        sprite_cap->position.y = position.y + shaftLen;
+        break;
+    case 2:
+        if (collided_left) canExtend = false;
+        colbox_left = 0.5 + shaftLen;
+        sprite_cap->position.x = position.x - shaftLen;
+        break;
+    case 3:
+        if (collided_top) canExtend = false;
+        colbox_top = 0.5 + shaftLen;
+        sprite_cap->position.y = position.y - shaftLen;
+        break;
+    }
+    switch (color) {
+    case 0:
+        if (gameState->flag_redActive) {
+            if (canExtend) shaftLen += deltaTime * 12.0;
+            //std::cout << "1";
         }
+        else {
+            shaftLen -= deltaTime * 12.0;
+            if (shaftLen < 0) shaftLen = 0;
+            //std::cout << "0";
+        }
+        break;
+    case 1:
+        if (gameState->flag_greenActive) {
+            if (canExtend) shaftLen += deltaTime * 12.0;
+        }
+        else {
+            shaftLen -= deltaTime * 12.0;
+            if (shaftLen < 0) shaftLen = 0;
+        }
+        break;
     }
-    Entity::Update(deltaTime, map);
 }
-Entity_Enemy2::Entity_Enemy2(float x, float y, GLuint tex) : Entity(x, y) {
-    sprite->scale = glm::vec3(0.5);
-    sprite->textureID = tex;
-    sprite->animCols = 4;
-    sprite->animRows = 4;
-    sprite->animIndex = 1;
-    colbox_height = 0.2;
-    colbox_width = 0.2;
+void Entity_Gate::render(ShaderProgram* program) {
+    sprite_shaft->Render(program);
+    sprite_cap->Render(program);
+    sprite->Render(program);
 }
-void Entity_Enemy2::Update(float deltaTime, Map* map) {
-    timer += deltaTime;
-    velocity.x = cos(timer * 2);
-    velocity.y = sin(timer * 2);
-    Entity::Update(deltaTime, map);
-}
-Entity_Enemy3::Entity_Enemy3(float x, float y, GLuint tex) : Entity(x, y) {
-    sprite->scale = glm::vec3(0.5);
-    sprite->textureID = tex;
-    sprite->animCols = 4;
-    sprite->animRows = 4;
-    sprite->animIndex = 2;
-    colbox_height = 0.2;
-    colbox_width = 0.2;
-}
-void Entity_Enemy3::Update(float deltaTime, Map* map, glm::vec3 playerPos) {
-    if (position.x < playerPos.x) {
-        velocity.x += 2*deltaTime;
-    } else if (position.x > playerPos.x) {
-        velocity.x -= 2* deltaTime;
+void Entity_Gate::doCollision(Map* map) {
+    switch (dir) {
+    case 0:
+        collided_right = false;
+        if (map->getLeftAt(position.x + colbox_right, position.y, +1) <= position.x + colbox_right) {
+            collided_right = true;
+        }
+        break;
+    case 1:
+        collided_bottom = false;
+        if (map->getTopAt(position.x, position.y + colbox_bottom, +1) <= position.y + colbox_bottom) {
+            collided_bottom = true;
+        }
+        break;
+    case 2:
+        collided_left = false;
+        if (map->getRightAt(position.x - colbox_left, position.y, -1) <= position.x - colbox_left) {
+            collided_left = true;
+        }
+        break;
+    case 3:
+        collided_top = false;
+        if (map->getBottomAt(position.x, position.y - colbox_top, -1) <= position.x - colbox_top) {
+            collided_top = true;
+        }
+        break;
     }
-    if (!collided_bottom) {
-        velocity.y -= 4 * deltaTime;
-    } else if (collided_left || collided_right) {
-        velocity.y = 3;
+
+}
+void Entity_Gate::reactCollision(Entity* other) {
+    switch (dir) {
+    case 0:
+        if (other->position.y + other->colbox_bottom > position.y - colbox_top
+            && other->position.y - other->colbox_top < position.y + colbox_bottom) {
+            if (position.x + colbox_right >= other->position.x - other->colbox_left) {
+                collided_right = true;
+            }
+        }
+        break;
+    case 1:
+        if (other->position.x + other->colbox_right > position.x - colbox_left
+            && other->position.x - other->colbox_left < position.x + colbox_right) {
+            if (position.y + colbox_bottom >= other->position.y - other->colbox_top) {
+                collided_bottom = true;
+            }
+        }
+        break;
+    case 2:
+        if (other->position.y + other->colbox_bottom > position.y - colbox_top
+            && other->position.y - other->colbox_top < position.y + colbox_bottom) {
+            if (position.x - colbox_left <= other->position.x + other->colbox_right) {
+                collided_left = true;
+            }
+        }
+        break;
+    case 3:
+        if (other->position.x + other->colbox_right > position.x - colbox_left
+            && other->position.x - other->colbox_left < position.x + colbox_right) {
+            if (position.y - colbox_top <= other->position.y + other->colbox_bottom) {
+                collided_top = true;
+            }
+        }
+        break;
     }
-    Entity::Update(deltaTime, map);
 }

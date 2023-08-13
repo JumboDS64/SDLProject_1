@@ -12,11 +12,13 @@
 #include "ShaderProgram.h"
 #include "Map.h"
 
+class GameState;
+
 class Sprite {
 public:
     glm::vec3 position;
     glm::vec3 scale;
-    float rotation;
+    float rotation = 0;
     GLuint textureID;
     glm::mat4 modelMatrix;
     int animFrames = 0;
@@ -24,55 +26,98 @@ public:
     float animTime = 0;
     int animCols = 1;
     int animRows = 1;
+    float vertices[12] = { -0.5, 0.5, 0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, -0.5, -0.5 };
     Sprite(float x, float y);
+    void load_texture(const char* filepath);
     void Render(ShaderProgram* program);
 };
 
 class Entity {
 public:
     Sprite* sprite;
+    float sprite_offsetY = 0.0;
     glm::vec3 position;
     glm::vec3 velocity;
+    int id;
 
-    float colbox_width = 0.8f;
-    float colbox_height = 0.8f;
+    float colbox_top = 0.5f;
+    float colbox_bottom = 0.5f;
+    float colbox_left = 0.5f;
+    float colbox_right = 0.5f;
     bool collided_top = false;
     bool collided_bottom = false;
     bool collided_left = false;
     bool collided_right = false;
+    bool isSolid = true;
+    bool isAnchored = false;
 
     bool ded = false;
 
     Entity(float x, float y);
 
-    void Update(float deltaTime, Map *map);
-    void Render(ShaderProgram* program);
-    void check_collision(Map* map);
+    virtual void act(float deltaTime, Map* map, GameState* gameState);
+    virtual void render(ShaderProgram* program);
+    virtual void doCollision(Map* map);
+    void resolveCollision(float x, float y, float left, float right, float top, float bottom);
+    virtual void resolveCollision(Entity* other);
+    virtual void reactCollision(Entity* other);
+    bool isPointInColbox(float x, float y);
 };
 
 class Entity_Player : public Entity {
-public:
-    bool player_grounded = true;
-    int win_state = 0; //-1 = lose, 0 = normal, 1 = 1 enemy killed, 2 = 2 enemies killed, 3 = win
-    Entity_Player(float x, float y, GLuint tex);
-    void check_collision(Entity* ent);
-};
-class Entity_Enemy1 : public Entity {
 private:
     int face;
 public:
-    Entity_Enemy1(float x, float y, GLuint tex);
-    void Update(float deltaTime, Map* map);
+    int win_state = 0;
+    Entity_Player(float x, float y);
+    void doCollision(Map* map);
+    void act(float deltaTime, Map* map, GameState* gameState);
 };
-class Entity_Enemy2 : public Entity {
+class Entity_Crate : public Entity {
+public:
+    int isSliding;
+    Entity_Crate(float x, float y);
+    void act(float deltaTime, Map* map, GameState* gameState);
+    void doCollision(Map* map);
+};
+class Entity_Button : public Entity {
+public:
+    int color;
+    bool isDown_p = false;
+    bool isDown = false;
+    Entity_Button(float x, float y, int _color);
+    void act(float deltaTime, Map* map, GameState* gameState);
+    void reactCollision(Entity* other);
+};
+class Entity_Gate : public Entity {
 private:
-    float timer;
+    int dir; //0 = right, 1 = down, 2 = left, 3 = up
+    float shaftLen = 0;
+    Sprite* sprite_shaft;
+    Sprite* sprite_cap;
 public:
-    Entity_Enemy2(float x, float y, GLuint tex);
-    void Update(float deltaTime, Map* map);
+    int color;
+    Entity_Gate(float x, float y, int _color, int _dir);
+    void act(float deltaTime, Map* map, GameState* gameState);
+    void render(ShaderProgram* program);
+    void doCollision(Map* map);
+    void reactCollision(Entity* other);
 };
-class Entity_Enemy3 : public Entity {
+
+class GameState {
 public:
-    Entity_Enemy3(float x, float y, GLuint tex);
-    void Update(float deltaTime, Map* map, glm::vec3 playerPos);
+    float time_total;
+    bool action_left = false;
+    bool action_right = false;
+    bool action_up = false;
+    bool action_down = false;
+    Entity* entities[64];
+    int entities_cur = 0;
+    int entities_max = 64;
+    bool flag_redActive = false;
+    bool flag_greenActive = false;
+    bool levelWon = false;
+    int currentLevel = 1;
+    bool addEntity(Entity* e);
+    bool destroyEntity(int id);
 };
