@@ -7,12 +7,12 @@
 #define GL_GLEXT_PROTOTYPES 1
 #include <SDL.h>
 #include <SDL_opengl.h>
+#include <SDL_mixer.h>
 #include "glm/mat4x4.hpp"
 #include "glm/gtc/matrix_transform.hpp"
 #include "ShaderProgram.h"
 #include "Map.h"
-
-class GameState;
+#include "Scene.h"
 
 class Sprite {
 public:
@@ -27,6 +27,7 @@ public:
     int animCols = 1;
     int animRows = 1;
     float vertices[12] = { -0.5, 0.5, 0.5, 0.5, 0.5, -0.5, -0.5, 0.5, 0.5, -0.5, -0.5, -0.5 };
+    float texCoords[12] = { 0.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 1.0, 1.0, 0.0, 0.0, 0.0 };
     Sprite(float x, float y);
     void load_texture(const char* filepath);
     void Render(ShaderProgram* program);
@@ -67,9 +68,12 @@ public:
 class Entity_Player : public Entity {
 private:
     int face;
+    Mix_Chunk* sfx_jump; //giving each entity its own copy of the sfx is atrocious, but for now it works
+    Mix_Chunk* sfx_kick;
+    float kickTimer;
 public:
-    int win_state = 0;
     Entity_Player(float x, float y);
+    ~Entity_Player();
     void doCollision(Map* map);
     void act(float deltaTime, Map* map, GameState* gameState);
 };
@@ -102,22 +106,4 @@ public:
     void render(ShaderProgram* program);
     void doCollision(Map* map);
     void reactCollision(Entity* other);
-};
-
-class GameState {
-public:
-    float time_total;
-    bool action_left = false;
-    bool action_right = false;
-    bool action_up = false;
-    bool action_down = false;
-    Entity* entities[64];
-    int entities_cur = 0;
-    int entities_max = 64;
-    bool flag_redActive = false;
-    bool flag_greenActive = false;
-    bool levelWon = false;
-    int currentLevel = 1;
-    bool addEntity(Entity* e);
-    bool destroyEntity(int id);
 };

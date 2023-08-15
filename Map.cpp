@@ -41,12 +41,12 @@ void Map::build()
             float tile_height = 1.0f / (float)m_tile_count_y;
 
             m_vertices.insert(m_vertices.end(), {
-                (tileSize * x_coord),  tileSize* y_coord,
+                (tileSize * x_coord),  tileSize * y_coord,
                 (tileSize * x_coord),  (tileSize * y_coord) + tileSize,
                 (tileSize * x_coord) + tileSize, (tileSize * y_coord) + tileSize,
-                (tileSize * x_coord), tileSize* y_coord,
+                (tileSize * x_coord), tileSize * y_coord,
                 (tileSize * x_coord) + tileSize, (tileSize * y_coord) + tileSize,
-                (tileSize * x_coord) + tileSize, tileSize* y_coord
+                (tileSize * x_coord) + tileSize, tileSize * y_coord
                 });
 
             m_texture_coordinates.insert(m_texture_coordinates.end(), {
@@ -81,11 +81,11 @@ void Map::render(ShaderProgram* program)
 }
 
 int Map::getTileTypeAt(float x, float y, int bias_x, int bias_y) {
-    int tile_x = floor(x/tileSize);
+    int tile_x = floor(x / tileSize);
     if (floorf(x) == x && bias_x == -1) {
         tile_x--;
     }
-    int tile_y = floor(y/tileSize);
+    int tile_y = floor(y / tileSize);
     if (floorf(y) == y && bias_y == -1) {
         tile_y--;
     }
